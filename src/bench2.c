@@ -57,6 +57,7 @@ argon2_type type = 0; //argon2_type.Argon2_d;
 uint32_t thread_n = 2;
 
 pthread_mutex_t lock;
+pthread_mutex_t lockOutput;
 
 /*
  * Benchmarks Argon2 with salt length 16, password length 16, t_cost 3,
@@ -82,7 +83,7 @@ void * benchmark() {
 
     while ( 1 == 1){
 
-        sleep(1);
+        sleep(2);
 
         pthread_mutex_lock(&lock);
         if (g_length > 0 && g_start < g_end){
@@ -128,17 +129,55 @@ void * benchmark() {
 }
 
 
-int main() {
+int main(int argc, char **argv ) {
 
-    int i, err;
+
+    int i, err, cores;
     argon2_select_impl(stderr, "[libargon2] ");
+
+    /* parse options */
+    for (i = 0; i < argc; i++) {
+        const char *a = argv[i];
+        unsigned long input = 0;
+        if (!strcmp(a, "-f")) {
+            if (i < argc - 1) {
+                i++;
+                g_filename = argv[i+1];
+                continue;
+            } else {
+                printf("missing -f argument");
+                return 0;
+            }
+        } else if (!strcmp(a, "-b")) {
+            if (i < argc - 1) {
+                i++;
+                g_batch = strtoul(argv[i+1], NULL, 10);
+                continue;
+            } else {
+                printf("missing -m argument");
+                return 0;
+            }
+        } else if (!strcmp(a, "-c")) {
+            if (i < argc - 1) {
+                i++;
+                cores = strtoul(argv[i+1], NULL, 10);
+                continue;
+            } else {
+                printf("missing -c argument");
+                return 0;
+            }
+        }
+    }
 
 
     if (pthread_mutex_init(&lock, NULL) != 0) {
         printf("\n mutex init has failed\n");
         return 1;
     }
-
+    if (pthread_mutex_init(&lockOutput, NULL) != 0) {
+        printf("\n mutex init has failed\n");
+        return 1;
+    }
 
     for (i=0; i < 8; i++){
 
@@ -166,6 +205,7 @@ int main() {
         pthread_join(tid[i], NULL);
 
     pthread_mutex_destroy(&lock);
+    pthread_mutex_destroy(&lockOutput);
 
 
 

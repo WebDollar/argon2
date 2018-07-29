@@ -14,13 +14,15 @@ int fileExists (char * filename) {
 }
 
 
-long unsigned g_start, g_length, g_end, g_batch;
+long unsigned g_start = 0, g_length = 0, g_end = 0, g_batch;
 char g_pwd[1024*1024*2], g_difficulty[33];
+char * g_filename;
 
 
 int readData(char * filename){
 
-    int i, _start, _length, security, a;
+    int i, a;
+    long unsigned _start, _length, security;
 
     if (!fileExists(filename))  return 0;
 
@@ -65,7 +67,7 @@ int readData(char * filename){
     fscanf(fin,"%lu", &g_end);
     fscanf(fin,"%lu", &g_batch);
 
-    fscanf(fin,"%lu",security);
+    fscanf(fin,"%lu", &security);
 
     //std::cout  << " cool " << end << " " << batch << " " << security << "\n";
 
@@ -86,16 +88,14 @@ int readData(char * filename){
         pwd[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
     }
 
-
     for (i=0;i < 32; i++) {
          char a = difficultyHex[2 * i],  b = difficultyHex[2 * i + 1];
      difficulty[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
 
-
-
     std::cout << length << " " << start << " "<< end << " " << batch << '\n';
     std::cout << pwd << '\n';
     std::cout << difficulty << '\n';
+
 */
 
     /*
