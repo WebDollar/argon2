@@ -3,6 +3,8 @@
 
 #include "stdio.h"
 
+char arr[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
 int fileExists (char * filename) {
     FILE *file  = fopen( filename, "r");
 
@@ -16,7 +18,9 @@ int fileExists (char * filename) {
 
 long unsigned g_start = 0, g_length = 0, g_end = 0, g_batch;
 char g_pwd[1024*1024*2], g_difficulty[33];
+
 char * g_filename;
+char * g_filenameOutput ;
 
 
 int readData(char * filename){

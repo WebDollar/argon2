@@ -74,12 +74,14 @@ void * benchmark() {
 
     uint32_t length;
     unsigned char pwd[1024*1025];
-    unsigned char target[32];
-    int i;
+    unsigned char target[32], bestHash[32];
+    unsigned long i;
 
     unsigned long j;
     unsigned long start = 0;
     unsigned long end = 30000;
+    unsigned long bestHashNonce;
+    unsigned long hs = 0;
 
     while ( 1 == 1){
 
@@ -97,14 +99,21 @@ void * benchmark() {
             memset(pwd, 0, length);
             for (i=0; i<length; i++)
                 pwd[i] = g_pwd[i];
+
+            for (i=0; i<32; i++)
+                target[i] = g_difficulty[i];
         }
         pthread_mutex_unlock(&lock);
 
+        for (i=0; i<32; i++)
+            bestHash[i] = 255;
 
         //double run_time = 0;
         clock_t tstart = clock();
 
-        for (j = start; j < end; ++j) {
+        int solution = 0;
+
+        for (j = start; j < end && solution == 0; ++j) {
 
             pwd[length + 3] = j & 0xff ;
             pwd[length + 2] = j >> 8 & 0xff ;
@@ -113,6 +122,82 @@ void * benchmark() {
 
             argon2_hash(t_cost, m_cost, thread_n, pwd, length+4,
                         "Satoshi_is_Finney", 17, out, 32, NULL, 0, type, ARGON2_VERSION_13);
+
+            int change = 0;
+            for (i=0; i < 32; ++i){
+                if (  bestHash[i] ==  out[i] ) continue; else
+                if (  bestHash[i] <  out[i] ) break; else
+                if (  bestHash[i] >  out[i] ){
+
+                    change = 1;
+                    break;
+
+                }
+            }
+
+
+            if (  change == 1){
+
+                for (i=0; i < 32; i++)
+                    bestHash[i] = out[i];
+
+                bestHashNonce  = j;
+
+                for (i=0; i< 32; ++i){
+                    if (  target[i] ==  bestHash[i] ) continue; else
+                    if (  target[i] <  bestHash[i] ) break; else
+                    if (  target[i] >  bestHash[i] ){
+
+
+                        if ( 1 == 2){
+                            for (i=0; i < 32; i++)
+                                printf("%u", bestHash[i]);
+
+                            //printf(std::cout << "SOLUTIE   "<< q << (int) difficulty[q] << " "<< (int) bestHash[q] << "\n";
+                        }
+
+                        pthread_mutex_lock(&lock);
+                        g_start = g_end;
+                        pthread_mutex_unlock(&lock);
+
+
+                        solution = 1;
+                        break;
+
+                    }
+                }
+
+
+            }
+
+
+        }
+
+        hs = 0;
+
+        if ( (solution == 1) || (j == g_end)){
+
+
+            char hash[32];
+            for (i=0; i < 32; i++){
+
+                hash[i] = arr[ bestHash[i]/16 ];
+                hash[i] = arr[ bestHash[i]%16 ];
+
+            }
+
+            pthread_mutex_lock(&lockOutput);
+
+
+            FILE * fout = fopen(g_filenameOutput, 'w');
+            if (solution == 1)
+                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %ul , \"h\": %ul }", hash, bestHashNonce, hs);
+            else
+                fprintf(fout, "{ \"type\": \"b\", \"hash\": \"%s\", \"nonce\": %ul , \"h\": %ul }", hash, bestHashNonce, hs);
+
+            fclose(fout);
+
+            pthread_mutex_unlock(&lockOutput);
 
         }
 
@@ -132,7 +217,7 @@ void * benchmark() {
 int main(int argc, char **argv ) {
 
 
-    int i, err, cores;
+    int i, err, cores = 4;
     argon2_select_impl(stderr, "[libargon2] ");
 
     /* parse options */
@@ -142,7 +227,9 @@ int main(int argc, char **argv ) {
         if (!strcmp(a, "-f")) {
             if (i < argc - 1) {
                 i++;
-                g_filename = argv[i+1];
+                g_filename = argv[i];
+                strcpy(g_filenameOutput, g_filename);
+                strcat(g_filenameOutput, "output");
                 continue;
             } else {
                 printf("missing -f argument");
@@ -151,7 +238,7 @@ int main(int argc, char **argv ) {
         } else if (!strcmp(a, "-b")) {
             if (i < argc - 1) {
                 i++;
-                g_batch = strtoul(argv[i+1], NULL, 10);
+                g_batch = strtoul(argv[i], NULL, 10);
                 continue;
             } else {
                 printf("missing -m argument");
@@ -160,7 +247,7 @@ int main(int argc, char **argv ) {
         } else if (!strcmp(a, "-c")) {
             if (i < argc - 1) {
                 i++;
-                cores = strtoul(argv[i+1], NULL, 10);
+                cores = strtoul(argv[i], NULL, 10);
                 continue;
             } else {
                 printf("missing -c argument");
@@ -179,7 +266,7 @@ int main(int argc, char **argv ) {
         return 1;
     }
 
-    for (i=0; i < 8; i++){
+    for (i=0; i < cores; i++){
 
         #ifdef WIN32
 
@@ -201,7 +288,7 @@ int main(int argc, char **argv ) {
         i++;
     }
 
-    for (i=0; i < 8; i++)
+    for (i=0; i < 4; i++)
         pthread_join(tid[i], NULL);
 
     pthread_mutex_destroy(&lock);
