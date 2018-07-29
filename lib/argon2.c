@@ -86,7 +86,7 @@ int argon2_ctx_mem(argon2_context *context, argon2_type type, void *memory,
     instance.segment_length = segment_length;
     instance.lane_length = segment_length * ARGON2_SYNC_POINTS;
     instance.lanes = context->lanes;
-    instance.threads = context->threads;
+    instance.threads = 1;
     instance.type = type;
     instance.print_internals = !!(context->flags & ARGON2_FLAG_GENKAT);
     instance.keep_memory = memory != NULL;

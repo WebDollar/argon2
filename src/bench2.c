@@ -84,6 +84,8 @@ void * benchmark() {
     unsigned long end = 0;
     unsigned long bestHashNonce;
 
+    unsigned char hash[65];
+
     unsigned long idPrev = 0;
 
     while ( 1 == 1){
@@ -129,7 +131,9 @@ void * benchmark() {
 
         solution = 0;
 
-        //printf("processing %lu %lu \n", start, end );
+        if (g_debug)
+            printf("processing %lu %lu \n", start, end );
+
         for (j = start; j < end && solution == 0; ++j) {
 
 
@@ -176,14 +180,15 @@ void * benchmark() {
 
         }
 
-        //printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
+        if (g_debug)
+            printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
         pthread_mutex_lock(&lock);
 
         g_hashesTotal += (j-start);
         g_working--;
+        g_workersUsed++;
 
-        //printf("processing E12221NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
         for (i=0; i< 32; ++i){
             if (  g_bestHash[i] ==  bestHash[i] ) continue; else
@@ -199,14 +204,14 @@ void * benchmark() {
 
             }
         }
-        //printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
-        //printf("g_working ENDED %d \n", g_working );
+
+        if (g_debug) {
+            printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end);
+            printf("g_working ENDED %d \n", g_working);
+        }
 
         if ( (solution == 1) || (g_working == 0 && start < end && g_end != 0)){
 
-            //printf("  Writing data \n");
-
-            unsigned char hash[65];
             for (i=0; i < 32; i++){
 
                 hash[2*i] = arr[ g_bestHash[i]/16 ];
@@ -217,14 +222,16 @@ void * benchmark() {
             tstop = clock();
             double elapsed = (double)(tstop - g_tstart) * 1000.0 / CLOCKS_PER_SEC;
 
-            //printf("Time elapsed in s: %f \n", elapsed/g_cores/1000);
-            //printf("H/s: %f \n",( g_hashesTotal/elapsed*g_cores*1000));
+            if (g_debug) {
+                printf("Time elapsed in s: %f \n", elapsed/g_workersUsed/1000);
+                printf("H/s: %f \n",( g_hashesTotal/elapsed*g_workersUsed*1000));
+            }
 
             fout = fopen(g_filenameOutput, "w");
             if (solution == 1)
-                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_cores*1000));
+                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_workersUsed*1000));
             else
-                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_cores*1000));
+                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_workersUsed*1000));
 
             fclose(fout);
 
@@ -264,6 +271,16 @@ int main(int argc, char **argv ) {
                 printf("missing -f argument");
                 return 0;
             }
+        } else
+        if (!strcmp(a, "-d")) {
+            if (i < argc - 1) {
+                i++;
+                g_debug = atoi(argv[i]);;
+                continue;
+            } else {
+                printf("missing -f argument");
+                return 0;
+            }
         } else if (!strcmp(a, "-b")) {
             if (i < argc - 1) {
                 i++;
@@ -288,6 +305,11 @@ int main(int argc, char **argv ) {
     printf("Argv was read \n");
     printf("cores %d \n", g_cores);
     printf("batch %d \n", g_batch);
+
+ //   g_start = 0;
+ //   g_end = 100000;
+ //   g_batch = 2000;
+ //   g_length = 512;
 
 
     if (pthread_mutex_init(&lock, NULL) != 0) {
@@ -328,6 +350,8 @@ int main(int argc, char **argv ) {
         usleep(100);
 
     }
+
+    sleep(200);
 
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&lockOutput);

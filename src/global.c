@@ -21,7 +21,7 @@ pthread_mutex_t lock;
 pthread_mutex_t lockOutput;
 
 
-char g_working = 0;
+char g_working = 0, g_workersUsed = 0;
 
 long unsigned g_id = 0;
 
@@ -32,6 +32,8 @@ long unsigned g_bestHashNonce = 0;
 long unsigned g_hashesTotal = 0;
 
 unsigned char g_cores = 4;
+
+unsigned char g_debug = 1;
 
 char * g_filename;
 char g_filenameOutput[50] ;
@@ -116,6 +118,7 @@ int readData(char * filename){
     g_tstart = clock();
 
     g_id++;
+    g_workersUsed = 0;
 
     fclose(fin);
     pthread_mutex_unlock(&lock);
