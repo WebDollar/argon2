@@ -2,6 +2,8 @@
 #define GLOBAL2_H
 
 #include "stdio.h"
+#include<pthread.h>
+#include "time.h"
 
 char arr[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -15,18 +17,29 @@ int fileExists (char * filename) {
     return 0;
 }
 
+pthread_mutex_t lock;
+pthread_mutex_t lockOutput;
 
-long unsigned g_start = 0, g_length = 0, g_end = 0, g_batch;
-char g_pwd[1024*1024*2], g_difficulty[33];
+
+char g_working = 0;
+
+long unsigned g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch;
+unsigned char g_pwd[1024*1026], g_difficulty[34];
+unsigned char g_bestHash[34];
+long unsigned g_bestHashNonce = 0;
+long unsigned g_hashesTotal = 0;
 
 char * g_filename;
-char * g_filenameOutput ;
+char g_filenameOutput[50] ;
+
+clock_t g_tstart;
 
 
 int readData(char * filename){
 
     int i, a;
     long unsigned _start, _length, security;
+
 
     if (!fileExists(filename))  return 0;
 
@@ -35,24 +48,29 @@ int readData(char * filename){
     fscanf (fin, "%lu", &_start);
     fscanf (fin, "%lu", &_length);
 
-    if (_start == g_start && _length == g_length){
+
+    if (_start == g_startPrev && _length == g_length){
         fclose(fin);
         return 0;
     }
 
-    //std::cout << "hash:   " << " \n";
+    pthread_mutex_lock(&lock);
+
+
+    //printf("hash:   \n");
     for ( i=0; i<_length ; i++){
         fscanf (fin,"%d", &a);
         g_pwd[i] = a;
 
         if (feof(fin)){
             fclose(fin);
+            pthread_mutex_unlock(&lock);
             return 0;
         }
         //std::cout << a << " ";
     }
 
-    printf("DIFFICULTY:   \n");
+    //printf("DIFFICULTY:   \n");
     for ( i=0; i<32; i++){
 
         fscanf (fin, "%d", &a);
@@ -60,6 +78,7 @@ int readData(char * filename){
 
         if (feof(fin)){
             fclose(fin);
+            pthread_mutex_unlock(&lock);
             return 0;
         }
         //std::cout << a << " ";
@@ -77,14 +96,25 @@ int readData(char * filename){
 
     if (security != 218391){
         fclose(fin);
+        pthread_mutex_unlock(&lock);
         return 0;
     }
 
     g_start = _start;
+    g_startPrev = g_start;
     g_length = _length;
 
-    fclose(fin);
+    for (i=0; i<32; i++)
+        g_bestHash[i] = 255;
 
+    g_bestHashNonce = 0;
+    g_hashesTotal = 0;
+    g_tstart = clock();
+
+    fclose(fin);
+    pthread_mutex_unlock(&lock);
+
+    printf("DATA READ!!! %lu %lu %lu \n", g_length, g_start, g_end);
 
 /*
     for (i=0;i < length;i++) {

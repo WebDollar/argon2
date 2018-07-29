@@ -56,8 +56,7 @@ uint32_t m_cost = 256;
 argon2_type type = 0; //argon2_type.Argon2_d;
 uint32_t thread_n = 2;
 
-pthread_mutex_t lock;
-pthread_mutex_t lockOutput;
+
 
 /*
  * Benchmarks Argon2 with salt length 16, password length 16, t_cost 3,
@@ -70,25 +69,30 @@ DWORD WINAPI benchmark(void* data) {
 void * benchmark() {
 #endif
 
+    clock_t tstop;
+    char change, solution;
     unsigned char out[32];
+    FILE * fout;
 
     uint32_t length;
-    unsigned char pwd[1024*1025];
-    unsigned char target[32], bestHash[32];
+    unsigned char pwd[1024*1026];
+    unsigned char target[33], bestHash[33];
     unsigned long i;
 
     unsigned long j;
     unsigned long start = 0;
-    unsigned long end = 30000;
+    unsigned long end = 0;
     unsigned long bestHashNonce;
-    unsigned long hs = 0;
 
     while ( 1 == 1){
 
         sleep(2);
 
+        start, end = 0;
+
         pthread_mutex_lock(&lock);
-        if (g_length > 0 && g_start < g_end){
+
+        if (g_length > 0 && g_end > 0 && g_start < g_end){
             start = g_start;
             end = g_start + g_batch;
             if (end > g_end)
@@ -102,18 +106,22 @@ void * benchmark() {
 
             for (i=0; i<32; i++)
                 target[i] = g_difficulty[i];
+
+            g_working++;
         }
         pthread_mutex_unlock(&lock);
+
+        if ( end == 0)
+            continue;
 
         for (i=0; i<32; i++)
             bestHash[i] = 255;
 
-        //double run_time = 0;
-        clock_t tstart = clock();
+        solution = 0;
 
-        int solution = 0;
-
+        printf("processing %lu %lu \n", start, end );
         for (j = start; j < end && solution == 0; ++j) {
+
 
             pwd[length + 3] = j & 0xff ;
             pwd[length + 2] = j >> 8 & 0xff ;
@@ -123,7 +131,7 @@ void * benchmark() {
             argon2_hash(t_cost, m_cost, thread_n, pwd, length+4,
                         "Satoshi_is_Finney", 17, out, 32, NULL, 0, type, ARGON2_VERSION_13);
 
-            int change = 0;
+            change = 0;
             for (i=0; i < 32; ++i){
                 if (  bestHash[i] ==  out[i] ) continue; else
                 if (  bestHash[i] <  out[i] ) break; else
@@ -149,13 +157,6 @@ void * benchmark() {
                     if (  target[i] >  bestHash[i] ){
 
 
-                        if ( 1 == 2){
-                            for (i=0; i < 32; i++)
-                                printf("%u", bestHash[i]);
-
-                            //printf(std::cout << "SOLUTIE   "<< q << (int) difficulty[q] << " "<< (int) bestHash[q] << "\n";
-                        }
-
                         pthread_mutex_lock(&lock);
                         g_start = g_end;
                         pthread_mutex_unlock(&lock);
@@ -173,37 +174,63 @@ void * benchmark() {
 
         }
 
-        hs = 0;
 
-        if ( (solution == 1) || (j == g_end)){
+        pthread_mutex_lock(&lock);
+
+        g_hashesTotal += j-start;
+
+        for (i=0; i< 32; ++i){
+            if (  g_bestHash[i] ==  bestHash[i] ) continue; else
+            if (  g_bestHash[i] <  bestHash[i] ) break; else
+            if (  g_bestHash[i] >  bestHash[i] ){
+
+                for (j=0; j < 32; j++) {
+                    g_bestHash[j] = bestHash[j];
+                }
+
+                g_bestHashNonce  = bestHashNonce;
+
+                break;
+
+            }
+        }
+
+        g_working--;
+
+        printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
+        printf("g_working ENDED %d \n", g_working );
+
+        if ( (solution == 1) || (g_working == 0 && start < end && g_end != 0)){
 
 
-            char hash[32];
+            printf("  Writing data \n");
+
+            unsigned char hash[65];
             for (i=0; i < 32; i++){
 
-                hash[i] = arr[ bestHash[i]/16 ];
-                hash[i] = arr[ bestHash[i]%16 ];
+                hash[2*i] = arr[ g_bestHash[i]/16 ];
+                hash[2*i+1] = arr[ g_bestHash[i]%16 ];
 
             }
 
-            pthread_mutex_lock(&lockOutput);
+            tstop = clock();
+            double elapsed = (double)(tstop - g_tstart) * 1000.0 / CLOCKS_PER_SEC;
 
+            printf("Time elapsed in s: %f \n", elapsed/1000);
+            printf("H/s: %lu \n",(unsigned long) ( g_hashesTotal*elapsed));
 
-            FILE * fout = fopen(g_filenameOutput, 'w');
+            fout = fopen(g_filenameOutput, "w");
             if (solution == 1)
-                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %ul , \"h\": %ul }", hash, bestHashNonce, hs);
+                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal*elapsed));
             else
-                fprintf(fout, "{ \"type\": \"b\", \"hash\": \"%s\", \"nonce\": %ul , \"h\": %ul }", hash, bestHashNonce, hs);
+                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal*elapsed));
 
             fclose(fout);
 
-            pthread_mutex_unlock(&lockOutput);
 
         }
+        pthread_mutex_unlock(&lock);
 
-        clock_t tstop = clock();
-        double elapsed = (double)(tstop - tstart) * 1000.0 / CLOCKS_PER_SEC;
-        printf("Time elapsed in s: %f \n", elapsed/1000);
         //printf("H/s: %f \n", (end-start)/(elapsed/1000));
 
 
@@ -220,10 +247,11 @@ int main(int argc, char **argv ) {
     int i, err, cores = 4;
     argon2_select_impl(stderr, "[libargon2] ");
 
+    printf("PARSING \n");
     /* parse options */
     for (i = 0; i < argc; i++) {
         const char *a = argv[i];
-        unsigned long input = 0;
+
         if (!strcmp(a, "-f")) {
             if (i < argc - 1) {
                 i++;
@@ -238,7 +266,7 @@ int main(int argc, char **argv ) {
         } else if (!strcmp(a, "-b")) {
             if (i < argc - 1) {
                 i++;
-                g_batch = strtoul(argv[i], NULL, 10);
+                g_batch = atoi(argv[i]);
                 continue;
             } else {
                 printf("missing -m argument");
@@ -247,7 +275,7 @@ int main(int argc, char **argv ) {
         } else if (!strcmp(a, "-c")) {
             if (i < argc - 1) {
                 i++;
-                cores = strtoul(argv[i], NULL, 10);
+                cores = atoi(argv[i]);
                 continue;
             } else {
                 printf("missing -c argument");
@@ -255,6 +283,10 @@ int main(int argc, char **argv ) {
             }
         }
     }
+
+    printf("Argv was read \n");
+    printf("cores %d \n", cores);
+    printf("batch %d \n", g_batch);
 
 
     if (pthread_mutex_init(&lock, NULL) != 0) {
@@ -288,13 +320,15 @@ int main(int argc, char **argv ) {
         i++;
     }
 
-    for (i=0; i < 4; i++)
-        pthread_join(tid[i], NULL);
+    while (1 == 1){
+
+        readData(g_filename);
+        sleep(10);
+
+    }
 
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&lockOutput);
-
-
 
     return ARGON2_OK;
 }
