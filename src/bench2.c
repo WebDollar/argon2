@@ -129,7 +129,7 @@ void * benchmark() {
 
         solution = 0;
 
-        printf("processing %lu %lu \n", start, end );
+        //printf("processing %lu %lu \n", start, end );
         for (j = start; j < end && solution == 0; ++j) {
 
 
@@ -176,14 +176,14 @@ void * benchmark() {
 
         }
 
-        printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
+        //printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
         pthread_mutex_lock(&lock);
 
         g_hashesTotal += (j-start);
         g_working--;
 
-        printf("processing E12221NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
+        //printf("processing E12221NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
         for (i=0; i< 32; ++i){
             if (  g_bestHash[i] ==  bestHash[i] ) continue; else
@@ -199,8 +199,8 @@ void * benchmark() {
 
             }
         }
-        printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
-        printf("g_working ENDED %d \n", g_working );
+        //printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
+        //printf("g_working ENDED %d \n", g_working );
 
         if ( (solution == 1) || (g_working == 0 && start < end && g_end != 0)){
 
