@@ -1,0 +1,122 @@
+#ifndef GLOBAL2_H
+#define GLOBAL2_H
+
+#include "stdio.h"
+
+int fileExists (char * filename) {
+    FILE *file  = fopen( filename, "r");
+
+    if ( file ) {
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
+
+
+long unsigned g_start, g_length, g_end, g_batch;
+char g_pwd[1024*1024*2], g_difficulty[33];
+
+
+int readData(char * filename){
+
+    int i, _start, _length, security, a;
+
+    if (!fileExists(filename))  return 0;
+
+    FILE * fin = fopen(filename, "r");
+
+    fscanf (fin, "%lu", &_start);
+    fscanf (fin, "%lu", &_length);
+
+    if (_start == g_start && _length == g_length){
+        fclose(fin);
+        return 0;
+    }
+
+    //std::cout << "hash:   " << " \n";
+    for ( i=0; i<_length ; i++){
+        fscanf (fin,"%d", &a);
+        g_pwd[i] = a;
+
+        if (feof(fin)){
+            fclose(fin);
+            return 0;
+        }
+        //std::cout << a << " ";
+    }
+
+    printf("DIFFICULTY:   \n");
+    for ( i=0; i<32; i++){
+
+        fscanf (fin, "%d", &a);
+        g_difficulty[i] = a;
+
+        if (feof(fin)){
+            fclose(fin);
+            return 0;
+        }
+        //std::cout << a << " ";
+    }
+
+
+    //fin >> pwdHex;
+    //fin >> difficultyHex;
+    fscanf(fin,"%lu", &g_end);
+    fscanf(fin,"%lu", &g_batch);
+
+    fscanf(fin,"%lu",security);
+
+    //std::cout  << " cool " << end << " " << batch << " " << security << "\n";
+
+    if (security != 218391){
+        fclose(fin);
+        return 0;
+    }
+
+    g_start = _start;
+    g_length = _length;
+
+    fclose(fin);
+
+
+/*
+    for (i=0;i < length;i++) {
+         char a = pwdHex[2 * i],  b = pwdHex[2 * i + 1];
+        pwd[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
+    }
+
+
+    for (i=0;i < 32; i++) {
+         char a = difficultyHex[2 * i],  b = difficultyHex[2 * i + 1];
+     difficulty[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
+
+
+
+    std::cout << length << " " << start << " "<< end << " " << batch << '\n';
+    std::cout << pwd << '\n';
+    std::cout << difficulty << '\n';
+*/
+
+    /*
+        for (auto q=0; q < length; q++){
+             d2base( pwd[q], 16);
+             std::cout << " ";
+        }
+
+        std::cout << "\n\n";
+       for (auto q=0; q < 32; q++){
+             //d2base( difficulty[q], 16);
+             //std::cout << difficulty[q];
+             std::cout << " ";
+        }
+        std::cout  << "\n\n";
+    */
+
+    return 1;
+
+}
+
+
+
+#endif
