@@ -50,11 +50,12 @@ static uint64_t rdtsc(void) {
 #endif
 }
 
+#define CONST_CAST(x) (x)(uintptr_t)
 
-uint32_t t_cost = 2;
-uint32_t m_cost = 256;
+
+
+
 argon2_type type = 0; //argon2_type.Argon2_d;
-uint32_t thread_n = 2;
 
 
 
@@ -75,7 +76,7 @@ void * benchmark() {
     FILE * fout;
 
     uint32_t length;
-    unsigned char pwd[1024*1026];
+    unsigned char pwd[1024*1024+1];
     unsigned char target[33], bestHash[33];
     unsigned long i;
 
@@ -87,6 +88,29 @@ void * benchmark() {
     unsigned char hash[65];
 
     unsigned long idPrev = 0;
+
+
+
+    argon2_context context;
+    int result;
+
+    context.out = (uint8_t *)out;
+    context.outlen = (uint32_t)32;
+    context.salt = CONST_CAST(uint8_t *)"Satoshi_is_Finney";
+    context.saltlen = (uint32_t)17;
+    context.secret = NULL;
+    context.secretlen = 0;
+    context.ad = NULL;
+    context.adlen = 0;
+    context.t_cost = 2;
+    context.m_cost = 256;
+    context.lanes = 2;
+    context.threads = 1;
+    context.allocate_cbk = NULL;
+    context.free_cbk = NULL;
+    context.flags = ARGON2_DEFAULT_FLAGS;
+    context.version = ARGON2_VERSION_13;
+    context.pwd = CONST_CAST(uint8_t *)pwd;
 
     while ( 1 == 1){
 
@@ -104,18 +128,17 @@ void * benchmark() {
 
             if (idPrev != g_id) {
 
+                length = g_length;
+                for (i = 0; i < length; i++)
+                    pwd[i] = g_pwd[i];
 
-                    length = g_length;
-                    memset(pwd, 0, length);
-                    for (i = 0; i < length; i++)
-                        pwd[i] = g_pwd[i];
+                for (i=0; i<32; i++)
+                    target[i] = g_difficulty[i];
 
-                    for (i=0; i<32; i++)
-                        target[i] = g_difficulty[i];
+                for (i=0; i<32; i++)
+                    bestHash[i] = 255;
 
-                    for (i=0; i<32; i++)
-                        bestHash[i] = 255;
-
+                context.pwdlen = (uint32_t)(length+4);
 
                 idPrev = g_id;
             }
@@ -142,8 +165,12 @@ void * benchmark() {
             pwd[length + 1] = j >> 16 & 0xff ;
             pwd[length    ] = j >> 24 & 0xff ;
 
-            argon2_hash(t_cost, m_cost, thread_n, pwd, length+4,
-                        "Satoshi_is_Finney", 17, out, 32, NULL, 0, type, ARGON2_VERSION_13);
+            result = argon2_ctx(&context, type);
+
+            if (result != ARGON2_OK) {
+                printf("Error Argon2d");
+                return 0;
+            }
 
             for (i=0; i < 32; ++i){
                 if (  bestHash[i] ==  out[i] ) continue; else
