@@ -49,7 +49,7 @@ int readData(char * filename){
 
     if (!fileExists(filename))  return 0;
 
-    FILE * fin = fopen(filename, "r");
+    FILE * fin = fopen(filename, "rb");
 
     fscanf (fin, "%lu", &_start);
     fscanf (fin, "%lu", &_length);
