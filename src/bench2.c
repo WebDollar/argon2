@@ -76,7 +76,9 @@ void * benchmark() {
     FILE * fout;
 
     uint32_t length;
-    unsigned char pwd[1024*1024+1];
+    unsigned char pwd[1024*1024+5];
+    //unsigned char pwdBuffer[1024*1024+5];
+
     unsigned char target[33], bestHash[33];
     unsigned long i;
 
@@ -128,9 +130,11 @@ void * benchmark() {
 
             if (idPrev != g_id) {
 
-                length = g_length;
+                length = (int32_t) g_length;
                 for (i = 0; i < length; i++)
                     pwd[i] = g_pwd[i];
+                    //pwdBuffer[i] = g_pwd[i];
+
 
                 for (i=0; i<32; i++)
                     target[i] = g_difficulty[i];
@@ -147,7 +151,7 @@ void * benchmark() {
 
 
         if ( end == 0) {
-            //usleep(1);
+            usleep(2);
             continue;
         }
 
@@ -159,6 +163,8 @@ void * benchmark() {
 
         for (j = start; j < end && solution == 0; ++j) {
 
+            //using memcpy
+            //memcpy(pwd, pwdBuffer, length);
 
             pwd[length + 3] = j & 0xff ;
             pwd[length + 2] = j >> 8 & 0xff ;
@@ -207,6 +213,7 @@ void * benchmark() {
 
         }
 
+
         if (g_debug)
             printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
@@ -226,6 +233,7 @@ void * benchmark() {
                     g_bestHash[j] = bestHash[j];
 
                 g_bestHashNonce  = bestHashNonce;
+
 
                 break;
 
@@ -256,9 +264,9 @@ void * benchmark() {
 
             fout = fopen(g_filenameOutput, "w");
             if (solution == 1)
-                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_workersUsed*1000));
+                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*1000));
             else
-                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*g_workersUsed*1000));
+                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*1000));
 
             fclose(fout);
 

@@ -123,7 +123,8 @@ int readData(char * filename){
     fclose(fin);
     pthread_mutex_unlock(&lock);
 
-    printf("DATA READ!!! %lu %lu %lu \n", g_length, g_start, g_end);
+    if (g_debug)
+        printf("DATA READ!!! %lu %lu %lu \n", g_length, g_start, g_end);
 
 /*
     for (i=0;i < length;i++) {
