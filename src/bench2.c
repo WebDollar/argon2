@@ -26,7 +26,7 @@
 
 #include "argon2.h"
 
-#include "global.c"
+#include "global.cpp"
 #include<pthread.h>
 #include<unistd.h>
 pthread_t tid[100];
@@ -123,6 +123,7 @@ void * benchmark() {
         if (g_length > 0 && g_end > 0 && g_start < g_end){
 
             start = g_start;
+
             end = end > g_end ? g_end : g_start + g_batch;
 
             g_start = end;
@@ -133,8 +134,9 @@ void * benchmark() {
                 length = (int32_t) g_length;
                 for (i = 0; i < length; i++)
                     pwd[i] = g_pwd[i];
-                    //pwdBuffer[i] = g_pwd[i];
 
+                pwd[length+4] = 0;
+                pwd[length+5] = 0;
 
                 for (i=0; i<32; i++)
                     target[i] = g_difficulty[i];
@@ -195,11 +197,15 @@ void * benchmark() {
 
 
                             pthread_mutex_lock(&lock);
-                            g_start = g_end;
+
+                            if (idPrev == g_id) {
+                                g_start = g_end;
+                                solution = 1;
+                            } else { //it was changed already
+                                j = end;
+                            }
+
                             pthread_mutex_unlock(&lock);
-
-
-                            solution = 1;
                             break;
 
                         }
@@ -219,57 +225,65 @@ void * benchmark() {
 
         pthread_mutex_lock(&lock);
 
-        g_hashesTotal += (j-start);
-        g_working--;
-        g_workersUsed++;
+        if (g_id == idPrev){//i just mined something that was changed
 
 
-        for (i=0; i< 32; ++i){
-            if (  g_bestHash[i] ==  bestHash[i] ) continue; else
-            if (  g_bestHash[i] <  bestHash[i] ) break; else
-            if (  g_bestHash[i] >  bestHash[i] ){
-
-                for (j=0; j < 32; j++)
-                    g_bestHash[j] = bestHash[j];
-
-                g_bestHashNonce  = bestHashNonce;
+            g_hashesTotal += (j-start);
+            g_working--;
+            g_workersUsed++;
 
 
-                break;
+            for (i=0; i< 32; ++i){
+                if (  g_bestHash[i] ==  bestHash[i] ) continue; else
+                if (  g_bestHash[i] <  bestHash[i] ) break; else
+                if (  g_bestHash[i] >  bestHash[i] ){
 
+                    for (j=0; j < 32; j++)
+                        g_bestHash[j] = bestHash[j];
+
+                    g_bestHashNonce  = bestHashNonce;
+
+
+                    break;
+
+                }
             }
-        }
-
-        if (g_debug) {
-            printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end);
-            printf("g_working ENDED %d \n", g_working);
-        }
-
-        if ( (solution == 1) || (g_working == 0 && start < end && g_end != 0)){
-
-            for (i=0; i < 32; i++){
-
-                hash[2*i] = arr[ g_bestHash[i]/16 ];
-                hash[2*i+1] = arr[ g_bestHash[i]%16 ];
-
-            }
-
-            tstop = clock();
-            double elapsed = (double)(tstop - g_tstart) * 1000.0 / CLOCKS_PER_SEC;
 
             if (g_debug) {
-                printf("Time elapsed in s: %f \n", elapsed/g_workersUsed/1000);
-                printf("H/s: %f \n",( g_hashesTotal/elapsed*g_workersUsed*1000));
+                printf("processing ENDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end);
+                printf("g_working ENDED %d \n", g_working);
             }
 
-            fout = fopen(g_filenameOutput, "w");
-            if (solution == 1)
-                fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*1000));
-            else
-                fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (g_hashesTotal/elapsed*1000));
 
-            fclose(fout);
+            if ( (solution == 1) || (g_working == 0 && start < end && g_start == g_end && g_end != 0)){
 
+                for (i=0; i < 32; i++){
+
+                    hash[2*i] = arr[ (int) g_bestHash[i]/16 ];
+                    hash[2*i+1] = arr[ (int) g_bestHash[i]%16 ];
+
+                }
+                hash[64] = 0;
+
+
+                double elapsed = 10;
+
+                if (g_debug) {
+                    printf("Time elapsed in s: %f \n", elapsed/g_workersUsed/1000);
+                    printf("H/s: %f \n",( g_hashesTotal/elapsed*g_workersUsed*1000));
+                    tstop = clock();
+                    elapsed = (double)(tstop - g_tstart) * 1000.0 / CLOCKS_PER_SEC;
+                }
+
+                fout = fopen(g_filenameOutput, "w");
+                if (solution == 1)
+                    fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (0));
+                else
+                    fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (0));
+
+                fclose(fout);
+
+            }
 
 
         }
@@ -378,15 +392,26 @@ int main(int argc, char **argv ) {
     }
 
 
+    while (  1 ){
 
-    while (1 == 1){
+        if ( readData(g_filename) == -1 )
+            break;
 
-        readData(g_filename);
         usleep(100);
 
     }
 
-    sleep(200);
+    printf("Threads had been terminated \n");
+
+    usleep(200);
+
+    for (i=0; i < g_cores; i++)
+        pthread_cancel(tid[i]);
+
+    usleep(200);
+
+    for (i=0; i < g_cores; i++)
+        pthread_exit(i);
 
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&lockOutput);
