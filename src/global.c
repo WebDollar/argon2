@@ -101,6 +101,22 @@ int readData(char * filename){
         //std::cout << pwd[i] << " ";
     }
 
+    //fin >> pwdHex;
+    //fin >> difficultyHex;
+    fscanf(fin, "%lu", &g_end);
+    fscanf(fin, "%lu", &g_batch);
+
+    fscanf(fin, "%lu", &security);
+
+    //std::cout  << " cool " << end << " " << batch << " " << security << "\n";
+
+    if (security != 218391) {
+        fclose(fin);
+        pthread_mutex_unlock(&lock);
+        return 0;
+    }
+
+
     //check if it identical
     ok = 1;
     if (_start == g_startPrev && _length == g_length) {
@@ -130,20 +146,7 @@ int readData(char * filename){
     for (i=0; i < 32; i++)
         g_difficulty[i] = difficulty[i];
 
-    //fin >> pwdHex;
-    //fin >> difficultyHex;
-    fscanf(fin, "%lu", &g_end);
-    fscanf(fin, "%lu", &g_batch);
 
-    fscanf(fin, "%lu", &security);
-
-    //std::cout  << " cool " << end << " " << batch << " " << security << "\n";
-
-    if (security != 218391) {
-        fclose(fin);
-        pthread_mutex_unlock(&lock);
-        return 0;
-    }
 
     g_start = _start;
     g_startPrev = g_start;
