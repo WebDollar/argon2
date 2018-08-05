@@ -26,7 +26,7 @@
 
 #include "argon2.h"
 
-#include "global.cpp"
+#include "global.c"
 #include<pthread.h>
 #include<unistd.h>
 pthread_t tid[100];

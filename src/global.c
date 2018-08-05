@@ -39,6 +39,8 @@ long unsigned g_id = 0;
 
 long unsigned g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch;
 unsigned char g_pwd[1024*1027], g_difficulty[34];
+unsigned char pwd[1024*1027], difficulty[34];
+
 unsigned char g_bestHash[34];
 long unsigned g_bestHashNonce = 0;
 long unsigned g_hashesTotal = 0;
@@ -55,7 +57,7 @@ clock_t g_tstart;
 
 int readData(char * filename){
 
-    int i, a;
+    int i, a, ok;
     long unsigned _start, _length, security;
 
 
@@ -71,41 +73,62 @@ int readData(char * filename){
         return -1;
     }
 
-    if (_start == g_startPrev && _length == g_length) {
-        fclose(fin);
-        return 0;
-    }
-
     pthread_mutex_lock(&lock);
 
 
     //printf("hash:   \n");
+    ok = 1;
     for (i = 0; i < _length; i++) {
-        fscanf(fin, "%d", &a);
-        g_pwd[i] = a;
+        fscanf(fin, "%hhu", &pwd[i] );
 
         if (feof(fin)) {
             fclose(fin);
             pthread_mutex_unlock(&lock);
             return 0;
         }
-        //std::cout << a << " ";
+        //std::cout << pwd[i] << " ";
     }
 
     //printf("DIFFICULTY:   \n");
     for (i = 0; i < 32; i++) {
 
-        fscanf(fin, "%d", &a);
-        g_difficulty[i] = a;
+        fscanf(fin, "%hhu", &difficulty[i]);
 
         if (feof(fin)) {
             fclose(fin);
             pthread_mutex_unlock(&lock);
             return 0;
         }
-        //std::cout << a << " ";
+        //std::cout << pwd[i] << " ";
     }
 
+    //check if it identical
+    if (_start == g_startPrev && _length == g_length) {
+
+        for (i=0; i < _length; i++)
+            if (pwd[i] != g_pwd[i]){
+                ok = 0;
+                break;
+            }
+
+        for (i=0; i < _length; i++)
+            if (difficulty[i] != g_difficulty[i]){
+                ok = 0;
+                break;
+            }
+
+        if (ok == 0){
+            fclose(fin);
+            pthread_mutex_unlock(&lock);
+            return 0;
+        }
+    }
+
+    for (i=0; i < _length; i++)
+        g_pwd[i] = pwd[i];
+
+    for (i=0; i < 32; i++)
+        g_difficulty[i] = difficulty[i];
 
     //fin >> pwdHex;
     //fin >> difficultyHex;
