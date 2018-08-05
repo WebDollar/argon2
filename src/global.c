@@ -35,15 +35,15 @@ pthread_mutex_t lockOutput;
 
 char g_working = 0, g_workersUsed = 0;
 
-long unsigned g_id = 0;
+unsigned long g_id = 0;
 
-long unsigned g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch;
+unsigned long g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch;
 unsigned char g_pwd[1024*1027], g_difficulty[34];
 unsigned char pwd[1024*1027], difficulty[34];
 
 unsigned char g_bestHash[34];
-long unsigned g_bestHashNonce = 0;
-long unsigned g_hashesTotal = 0;
+unsigned long g_bestHashNonce = 0;
+unsigned long g_hashesTotal = 0;
 
 unsigned char g_cores = 4;
 
@@ -58,7 +58,7 @@ clock_t g_tstart;
 int readData(char * filename){
 
     int i, a, ok;
-    long unsigned _start, _length, security;
+    unsigned long _start, _length, security;
 
 
     if (fileExists(filename) == 0) return 0;
@@ -77,7 +77,6 @@ int readData(char * filename){
 
 
     //printf("hash:   \n");
-    ok = 1;
     for (i = 0; i < _length; i++) {
         fscanf(fin, "%hhu", &pwd[i] );
 
@@ -103,6 +102,7 @@ int readData(char * filename){
     }
 
     //check if it identical
+    ok = 1;
     if (_start == g_startPrev && _length == g_length) {
 
         for (i=0; i < _length; i++)
