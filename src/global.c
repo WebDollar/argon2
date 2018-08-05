@@ -111,7 +111,7 @@ int readData(char * filename){
                 break;
             }
 
-        for (i=0; i < _length; i++)
+        for (i=0; i < 32; i++)
             if (difficulty[i] != g_difficulty[i]){
                 ok = 0;
                 break;
