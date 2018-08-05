@@ -117,7 +117,7 @@ int readData(char * filename){
                 break;
             }
 
-        if (ok == 0){
+        if (ok == 1){
             fclose(fin);
             pthread_mutex_unlock(&lock);
             return 0;
