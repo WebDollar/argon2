@@ -255,7 +255,7 @@ void * benchmark() {
             }
 
 
-            if ( (solution == 1) || (g_working == 0 && start < end && g_start == g_end && g_end != 0)){
+            if ( (solution == 1) || (g_working == 0 && g_start == g_end && g_end != 0)){
 
                 for (i=0; i < 32; i++){
 
