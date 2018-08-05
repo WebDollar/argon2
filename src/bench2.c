@@ -225,11 +225,12 @@ void * benchmark() {
 
         pthread_mutex_lock(&lock);
 
+        g_working--;
+
         if (g_id == idPrev){//i just mined something that was changed
 
 
             g_hashesTotal += (j-start);
-            g_working--;
             g_workersUsed++;
 
 
