@@ -244,9 +244,7 @@ void * benchmark() {
 
                     g_bestHashNonce  = bestHashNonce;
 
-
                     break;
-
                 }
             }
 
@@ -395,8 +393,9 @@ int main(int argc, char **argv ) {
 
     while (  1 ){
 
-        if ( readData(g_filename) == -1 )
-            break;
+        if (g_workersUsed == 0)
+            if ( readData(g_filename) == -1 )
+                break;
 
         usleep(100);
 
