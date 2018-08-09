@@ -299,7 +299,7 @@ void * benchmark() {
 int main(int argc, char **argv ) {
 
 
-    int i, err;
+    int i, err, ok;
 
     argon2_select_impl(stderr, "[libargon2] ");
 
@@ -393,7 +393,14 @@ int main(int argc, char **argv ) {
 
     while (  1 ){
 
-        if (g_workersUsed == 0)
+
+        ok = 0;
+        pthread_mutex_lock(&lock);
+        if (g_working == 0)
+            ok = 1;
+        pthread_mutex_unlock(&lock);
+
+        if (ok == 1)
             if ( readData(g_filename) == -1 )
                 break;
 
