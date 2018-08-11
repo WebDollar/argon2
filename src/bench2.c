@@ -199,7 +199,7 @@ void * benchmark() {
                             pthread_mutex_lock(&lock);
 
                             if (idPrev == g_id) {
-                                g_start = g_end;
+                                g_start = g_end+1;
                                 solution = 1;
                             } else { //it was changed already
                                 j = end;
@@ -254,14 +254,15 @@ void * benchmark() {
             }
 
 
-            if ( (solution == 1) || (g_working == 0 && g_start == g_end && g_end != 0)){
+            if ( (solution == 1) || (g_working == 0 && g_start == g_end  && g_end != 0)){
 
                 for (i=0; i < 32; i++){
 
-                    hash[2*i] = arr[ (int) g_bestHash[i]/16 ];
+                    hash[2*i]   = arr[ (int) g_bestHash[i]/16 ];
                     hash[2*i+1] = arr[ (int) g_bestHash[i]%16 ];
 
                 }
+
                 hash[64] = 0;
 
 
@@ -393,16 +394,8 @@ int main(int argc, char **argv ) {
 
     while (  1 ){
 
-
-        ok = 0;
-        pthread_mutex_lock(&lock);
-        if (g_working == 0)
-            ok = 1;
-        pthread_mutex_unlock(&lock);
-
-        if (ok == 1)
-            if ( readData(g_filename) == -1 )
-                break;
+        if ( readData(g_filename) == -1 )
+            break;
 
         usleep(100);
 
@@ -418,7 +411,7 @@ int main(int argc, char **argv ) {
     usleep(200);
 
     for (i=0; i < g_cores; i++)
-        pthread_exit(i);
+        pthread_exit( i );
 
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&lockOutput);
