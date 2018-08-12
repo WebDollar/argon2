@@ -397,7 +397,7 @@ int main(int argc, char **argv ) {
         if ( readData(g_filename) == -1 )
             break;
 
-        usleep(100);
+        usleep(10);
 
     }
 
