@@ -27,10 +27,15 @@
 #include "argon2.h"
 
 #include "global.c"
-#include<pthread.h>
-#include<unistd.h>
-pthread_t tid[100];
 
+#ifdef WIN32
+    #include <windows.h>
+    HANDLE tid[100];
+#else
+    #include<pthread.h>
+    #include<unistd.h>
+    pthread_t tid[100];
+#endif
 
 static uint64_t rdtsc(void) {
 #ifdef _MSC_VER
@@ -119,7 +124,11 @@ void * benchmark() {
         start, end = 0;
 
 
+#ifdef WIN32
+        WaitForSingleObject(lock, INFINITE);
+#else
         pthread_mutex_lock(&lock);
+#endif
         if (g_length > 0 && g_end > 0 && g_start < g_end){
 
             start = g_start;
@@ -149,7 +158,11 @@ void * benchmark() {
                 idPrev = g_id;
             }
         }
+#ifdef WIN32
+        ReleaseMutex(lock, INFINITE);
+#else
         pthread_mutex_unlock(&lock);
+#endif
 
 
         if ( end == 0) {
@@ -196,16 +209,23 @@ void * benchmark() {
                         if (  target[i] >  bestHash[i] ){
 
 
+#ifdef WIN32
+                            WaitForSingleObject(lock, INFINITE);
+#else
                             pthread_mutex_lock(&lock);
+#endif
 
                             if (idPrev == g_id) {
                                 g_start = g_end+1;
                                 solution = 1;
-                            } else { //it was changed already
+                            } else  //it was changed already
                                 j = end;
-                            }
 
+#ifdef WIN32
+                            ReleaseMutex(lock, INFINITE);
+#else
                             pthread_mutex_unlock(&lock);
+#endif
                             break;
 
                         }
@@ -223,7 +243,11 @@ void * benchmark() {
         if (g_debug)
             printf("processing E111NDED %lu %lu initially %lu %lu \n", start, end, g_start, g_end );
 
+#ifdef WIN32
+        WaitForSingleObject(lock, INFINITE);
+#else
         pthread_mutex_lock(&lock);
+#endif
 
         g_working--;
 
@@ -288,7 +312,11 @@ void * benchmark() {
 
         }
 
+#ifdef WIN32
+        ReleaseMutex(lock, INFINITE);
+#else
         pthread_mutex_unlock(&lock);
+#endif
 
     }
 
@@ -361,21 +389,36 @@ int main(int argc, char **argv ) {
  //   g_length = 512;
 
 
+#ifdef WIN32
+    lock = CreateMutex( NULL, FALSE, NULL);
+     lockOutput = CreateMutex( NULL, FALSE, NULL);
+     if (lock === NULL) {
+        printf("\n mutex init has failed\n");
+        return -1;
+     }
+     if (lockOutput === NULL) {
+        printf("\n mutex init has failed\n");
+        return -1;
+     }
+#else
     if (pthread_mutex_init(&lock, NULL) != 0) {
         printf("\n mutex init has failed\n");
-        return 1;
+        return -1;
     }
     if (pthread_mutex_init(&lockOutput, NULL) != 0) {
         printf("\n mutex init has failed\n");
-        return 1;
+        return -1;
     }
+
+#endif
+
 
     for (i=0; i < g_cores; i++){
 
 #ifdef WIN32
 
         HANDLE thread = CreateThread(NULL, 0, benchmark, NULL, 0, NULL);
-            tid[i] = thread;
+        tid[i] = thread;
 
 #else
 
@@ -405,6 +448,16 @@ int main(int argc, char **argv ) {
 
     usleep(200);
 
+
+#ifdef WIN32
+    ReleaseMutex(lock);
+    ReleaseMutex(lockOutput);
+
+    printf("WaitForMultipleObjects return: %d error: %d\n",
+         (DWORD)WaitForMultipleObjects(g_cores, tid, TRUE, INFINITE), GetLastError());
+
+#else
+
     for (i=0; i < g_cores; i++)
         pthread_cancel(tid[i]);
 
@@ -415,6 +468,7 @@ int main(int argc, char **argv ) {
 
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&lockOutput);
+#endif
 
     return ARGON2_OK;
 }

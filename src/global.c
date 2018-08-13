@@ -29,9 +29,13 @@ int fileExists (char * filename) {
     }
 }
 
-pthread_mutex_t lock;
-pthread_mutex_t lockOutput;
-
+#ifdef WIN32
+    HANDLE lock;
+    HANDLE lockoutput;
+#else
+    pthread_mutex_t lock;
+    pthread_mutex_t lockOutput;
+#endif
 
 char g_working = 0, g_workersUsed = 0;
 
@@ -73,7 +77,11 @@ int readData(char * filename){
         return -1;
     }
 
+#ifdef WIN32
+    WaitForSingleObject(lock, INFINITE);
+#else
     pthread_mutex_lock(&lock);
+#endif
 
 
     //printf("hash:   \n");
@@ -82,7 +90,11 @@ int readData(char * filename){
 
         if (feof(fin)) {
             fclose(fin);
+#ifdef WIN32
+            ReleaseMutex(lock, INFINITE);
+#else
             pthread_mutex_unlock(&lock);
+#endif
             return 0;
         }
         //std::cout << pwd[i] << " ";
@@ -95,7 +107,11 @@ int readData(char * filename){
 
         if (feof(fin)) {
             fclose(fin);
+#ifdef WIN32
+            ReleaseMutex(lock, INFINITE);
+#else
             pthread_mutex_unlock(&lock);
+#endif
             return 0;
         }
         //std::cout << pwd[i] << " ";
@@ -112,7 +128,11 @@ int readData(char * filename){
 
     if (security != 218391) {
         fclose(fin);
+#ifdef WIN32
+        ReleaseMutex(lock, INFINITE);
+#else
         pthread_mutex_unlock(&lock);
+#endif
         return 0;
     }
 
@@ -135,7 +155,11 @@ int readData(char * filename){
 
         if (ok == 1){
             fclose(fin);
+#ifdef WIN32
+            ReleaseMutex(lock, INFINITE);
+#else
             pthread_mutex_unlock(&lock);
+#endif
             return 0;
         }
     }
@@ -163,7 +187,11 @@ int readData(char * filename){
     g_workersUsed = 0;
 
     fclose(fin);
+#ifdef WIN32
+    ReleaseMutex(lock, INFINITE);
+#else
     pthread_mutex_unlock(&lock);
+#endif
 
     if (g_debug)
         printf("DATA READ!!! %lu %lu %lu \n", g_length, g_start, g_end);
