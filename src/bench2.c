@@ -424,6 +424,7 @@ int main(int argc, char **argv ) {
         HANDLE thread = CreateThread(NULL, 0, benchmark, NULL, 0, NULL);
         tid[i] = thread;
 
+        Sleep(1);
 #else
 
         err = pthread_create(&(tid[i]), NULL, &benchmark, NULL);
@@ -432,14 +433,10 @@ int main(int argc, char **argv ) {
         else
             printf("\n Thread created successfully\n");
 
-
-#endif
-
-#ifdef WIN32
-        Sleep(1)
-#else
         usleep(1);
+
 #endif
+
     }
 
 
@@ -449,7 +446,7 @@ int main(int argc, char **argv ) {
             break;
 
 #ifdef WIN32
-        Sleep(10)
+        Sleep(10);
 #else
         usleep(10);
 #endif
