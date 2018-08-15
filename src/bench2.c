@@ -396,11 +396,11 @@ int main(int argc, char **argv ) {
 #ifdef WIN32
     lock = CreateMutex( NULL, FALSE, NULL);
      lockOutput = CreateMutex( NULL, FALSE, NULL);
-     if (lock === NULL) {
+     if (lock == NULL) {
         printf("\n mutex init has failed\n");
         return -1;
      }
-     if (lockOutput === NULL) {
+     if (lockOutput == NULL) {
         printf("\n mutex init has failed\n");
         return -1;
      }
