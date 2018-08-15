@@ -96,7 +96,7 @@ int readData(char * filename){
         if (feof(fin)) {
             fclose(fin);
 #ifdef WIN32
-            ReleaseMutex(lock, INFINITE);
+            ReleaseMutex(lock);
 #else
             pthread_mutex_unlock(&lock);
 #endif
@@ -113,7 +113,7 @@ int readData(char * filename){
         if (feof(fin)) {
             fclose(fin);
 #ifdef WIN32
-            ReleaseMutex(lock, INFINITE);
+            ReleaseMutex(lock);
 #else
             pthread_mutex_unlock(&lock);
 #endif
@@ -134,7 +134,7 @@ int readData(char * filename){
     if (security != 218391) {
         fclose(fin);
 #ifdef WIN32
-        ReleaseMutex(lock, INFINITE);
+        ReleaseMutex(lock);
 #else
         pthread_mutex_unlock(&lock);
 #endif
@@ -161,7 +161,7 @@ int readData(char * filename){
         if (ok == 1){
             fclose(fin);
 #ifdef WIN32
-            ReleaseMutex(lock, INFINITE);
+            ReleaseMutex(lock);
 #else
             pthread_mutex_unlock(&lock);
 #endif
@@ -193,7 +193,7 @@ int readData(char * filename){
 
     fclose(fin);
 #ifdef WIN32
-    ReleaseMutex(lock, INFINITE);
+    ReleaseMutex(lock);
 #else
     pthread_mutex_unlock(&lock);
 #endif

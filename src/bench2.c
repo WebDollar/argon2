@@ -159,14 +159,18 @@ void * benchmark() {
             }
         }
 #ifdef WIN32
-        ReleaseMutex(lock, INFINITE);
+        ReleaseMutex(lock);
 #else
         pthread_mutex_unlock(&lock);
 #endif
 
 
         if ( end == 0) {
+#ifdef WIN32
+            Sleep(2)
+#else
             usleep(2);
+#endif
             continue;
         }
 
@@ -222,7 +226,7 @@ void * benchmark() {
                                 j = end;
 
 #ifdef WIN32
-                            ReleaseMutex(lock, INFINITE);
+                            ReleaseMutex(lock);
 #else
                             pthread_mutex_unlock(&lock);
 #endif
@@ -313,7 +317,7 @@ void * benchmark() {
         }
 
 #ifdef WIN32
-        ReleaseMutex(lock, INFINITE);
+        ReleaseMutex(lock);
 #else
         pthread_mutex_unlock(&lock);
 #endif
@@ -431,7 +435,11 @@ int main(int argc, char **argv ) {
 
 #endif
 
+#ifdef WIN32
+        Sleep(1)
+#else
         usleep(1);
+#endif
     }
 
 
@@ -440,24 +448,26 @@ int main(int argc, char **argv ) {
         if ( readData(g_filename) == -1 )
             break;
 
+#ifdef WIN32
+        Sleep(10)
+#else
         usleep(10);
+#endif
 
     }
 
     printf("Threads had been terminated \n");
 
-    usleep(200);
-
-
 #ifdef WIN32
+    Sleep(200)
     ReleaseMutex(lock);
     ReleaseMutex(lockOutput);
-
+    Sleep(200)
     printf("WaitForMultipleObjects return: %d error: %d\n",
          (DWORD)WaitForMultipleObjects(g_cores, tid, TRUE, INFINITE), GetLastError());
 
 #else
-
+    usleep(200);
     for (i=0; i < g_cores; i++)
         pthread_cancel(tid[i]);
 
