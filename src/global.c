@@ -2,9 +2,14 @@
 #define GLOBAL2_H
 
 #include "stdio.h"
-#include<pthread.h>
 #include "time.h"
 #include "unistd.h"
+
+#ifdef WIN32
+    #include <windows.h>
+#else
+    #include<pthread.h>
+#endif
 
 char arr[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
