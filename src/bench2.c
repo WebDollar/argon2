@@ -167,7 +167,7 @@ void * benchmark() {
 
         if ( end == 0) {
 #ifdef WIN32
-            Sleep(2)
+            Sleep(2);
 #else
             usleep(2);
 #endif
@@ -394,7 +394,7 @@ int main(int argc, char **argv ) {
 
 
 #ifdef WIN32
-    lock = CreateMutex( NULL, FALSE, NULL);
+     lock = CreateMutex( NULL, FALSE, NULL);
      lockOutput = CreateMutex( NULL, FALSE, NULL);
      if (lock == NULL) {
         printf("\n mutex init has failed\n");
@@ -459,10 +459,10 @@ int main(int argc, char **argv ) {
     printf("Threads had been terminated \n");
 
 #ifdef WIN32
-    Sleep(200)
+    Sleep(200);
     ReleaseMutex(lock);
     ReleaseMutex(lockOutput);
-    Sleep(200)
+    Sleep(200);
     printf("WaitForMultipleObjects return: %d error: %d\n",
          (DWORD)WaitForMultipleObjects(g_cores, tid, TRUE, INFINITE), GetLastError());
 

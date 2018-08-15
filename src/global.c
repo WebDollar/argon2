@@ -36,7 +36,7 @@ int fileExists (char * filename) {
 
 #ifdef WIN32
     HANDLE lock;
-    HANDLE lockoutput;
+    HANDLE lockOutput;
 #else
     pthread_mutex_t lock;
     pthread_mutex_t lockOutput;
