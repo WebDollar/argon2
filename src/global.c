@@ -59,7 +59,7 @@ unsigned char g_cores = 4;
 unsigned char g_debug = 1;
 
 char * g_filename;
-char g_filenameOutput[50] ;
+char g_filenameOutput[1024] ;
 
 clock_t g_tstart;
 
