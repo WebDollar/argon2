@@ -46,9 +46,12 @@ char g_working = 0, g_workersUsed = 0;
 
 unsigned long g_id = 0;
 
-unsigned long g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch;
+unsigned long g_startPrev = 0, g_start = 0, g_length = 0, g_end = 0, g_batch = 0;
 unsigned char g_pwd[1024*1027], g_difficulty[34];
-unsigned char pwd[1024*1027], difficulty[34];
+
+unsigned char dbl_pwd[1024*1027], dbl_difficulty[34];
+unsigned long dbl_end, dbl_batch;
+// ^ naming these dbl_ like "double-buffer"
 
 unsigned char g_bestHash[34];
 unsigned long g_bestHashNonce = 0;
@@ -59,128 +62,124 @@ unsigned char g_cores = 4;
 unsigned char g_debug = 1;
 
 char * g_filename;
-char g_filenameOutput[50] ;
+char g_filenameOutput[1024] ;
 
 clock_t g_tstart;
 
+#define readdata_debug(...) fprintf(rdDebugOut, __VA_ARGS__)
+#define readdata_flush() fflush(rdDebugOut)
+//FILE *rdDebugOut;
+//char rdDebugFilename[512];
 
+
+// Return type: Integer; values:
+// -1 = All done, shut down the whole argon2 process (main will exit)
+//  0 = No new data to process yet
+//  1 = New data to process!
 int readData(char * filename){
 
-    int i, a, ok;
+    int i, a, is_identical;
     unsigned long _start, _length, security;
 
 
     if (fileExists(filename) == 0) return 0;
 
     FILE *fin = fopen(filename, "rb");
+    if (!fin) {
+        //readdata_debug("Error opening input file %s; return 0\n", filename);
+        //readdata_flush();
+        return 0;
+    }
 
-    fscanf(fin, "%lu", &_start);
-    fscanf(fin, "%lu", &_length);
+    if (EOF == fscanf(fin, "%lu", &_start)) { fclose(fin); return 0; }
+    if (EOF == fscanf(fin, "%lu", &_length)) { fclose(fin); return 0; }
 
     if (_start == 0 && _length == 0) {
         fclose(fin);
         return -1;
     }
 
+    for (i = 0; i < _length; i++) {
+        if (EOF == fscanf(fin, "%hhu", &dbl_pwd[i] )) { fclose(fin); return 0; }
+
+        if (feof(fin)) { fclose(fin); return 0; }
+    }
+
+    for (i = 0; i < 32; i++) {
+
+        if (EOF == fscanf(fin, "%hhu", &dbl_difficulty[i])) { fclose(fin); return 0; }
+
+        if (feof(fin)) { fclose(fin); return 0; }
+    }
+
+    if (EOF == fscanf(fin, "%lu", &dbl_end)) { fclose(fin); return 0; }
+    if (EOF == fscanf(fin, "%lu", &dbl_batch)) { fclose(fin); return 0; }
+
+    if (EOF == fscanf(fin, "%lu", &security)) { fclose(fin); return 0; }
+
+    if (security != 218391) { fclose(fin); return 0; }
+
+	fclose(fin);  // All done with the input file
+
+//    if (_start != g_startPrev) {
+//    	readdata_debug("Loaded record: start: %lu; length: %lu; end: %lu; batch: %lu\n", _start, _length, dbl_end, dbl_batch);
+//    	readdata_flush();
+//    }
+
+    // File is valid; copy contents into g_pwd[] and g_difficulty[] after locking mutex
 #ifdef WIN32
     WaitForSingleObject(lock, INFINITE);
 #else
     pthread_mutex_lock(&lock);
 #endif
 
-
-    //printf("hash:   \n");
-    for (i = 0; i < _length; i++) {
-        fscanf(fin, "%hhu", &pwd[i] );
-
-        if (feof(fin)) {
-            fclose(fin);
-#ifdef WIN32
-            ReleaseMutex(lock);
-#else
-            pthread_mutex_unlock(&lock);
-#endif
-            return 0;
-        }
-        //std::cout << pwd[i] << " ";
-    }
-
-    //printf("DIFFICULTY:   \n");
-    for (i = 0; i < 32; i++) {
-
-        fscanf(fin, "%hhu", &difficulty[i]);
-
-        if (feof(fin)) {
-            fclose(fin);
-#ifdef WIN32
-            ReleaseMutex(lock);
-#else
-            pthread_mutex_unlock(&lock);
-#endif
-            return 0;
-        }
-        //std::cout << pwd[i] << " ";
-    }
-
-    //fin >> pwdHex;
-    //fin >> difficultyHex;
-    fscanf(fin, "%lu", &g_end);
-    fscanf(fin, "%lu", &g_batch);
-
-    fscanf(fin, "%lu", &security);
-
-    //std::cout  << " cool " << end << " " << batch << " " << security << "\n";
-
-    if (security != 218391) {
-        fclose(fin);
-#ifdef WIN32
-        ReleaseMutex(lock);
-#else
-        pthread_mutex_unlock(&lock);
-#endif
-        return 0;
-    }
-
-
-    //check if it identical
-    ok = 1;
+    //check if this dataset is identical to the one we're already processing
+    // As we're comparing data against g_pwd/g_difficulty which is accessed by the threads, this should be done
+    // under mutex protection. (maybe not 100% necessary since the threads don't write to these arrays?)
+    is_identical = 1;
     if (_start == g_startPrev && _length == g_length) {
 
         for (i=0; i < _length; i++)
-            if (pwd[i] != g_pwd[i]){
-                ok = 0;
+            if (dbl_pwd[i] != g_pwd[i]){
+                is_identical = 0;
                 break;
             }
 
         for (i=0; i < 32; i++)
-            if (difficulty[i] != g_difficulty[i]){
-                ok = 0;
+            if (dbl_difficulty[i] != g_difficulty[i]){
+                is_identical = 0;
                 break;
             }
 
-        if (ok == 1){
-            fclose(fin);
+        if (is_identical == 1){
 #ifdef WIN32
             ReleaseMutex(lock);
 #else
             pthread_mutex_unlock(&lock);
 #endif
-            return 0;
+            //readdata_debug("^ Data was identical to existing processing dataset though; return 0\n");
+            //readdata_flush();
+            return 0;  // Still not worried about processing this one
         }
     }
 
+	// Transfer file-sourced block data & difficulty into the active datasets
     for (i=0; i < _length; i++)
-        g_pwd[i] = pwd[i];
+        g_pwd[i] = dbl_pwd[i];
 
     for (i=0; i < 32; i++)
-        g_difficulty[i] = difficulty[i];
+        g_difficulty[i] = dbl_difficulty[i];
 
 
-
+    // reset g_start to beginning of this new work;
+    // keep in mind g_start is modified by threads as they consume batches of nonces
     g_start = _start;
-    g_startPrev = g_start;
-    g_length = _length;
+    g_startPrev = _start;  // indicates the _start from the last updated file/dataset
+    g_length = _length;    // Length of data (block including transactions)
+    g_end = dbl_end;       // the very last nonce to attempt for this dataset
+    g_batch = dbl_batch;   // incremental batch of nonces for each worker thread to search
 
+	// Reset best-hash/nonce parameters
     for (i = 0; i < 32; i++)
         g_bestHash[i] = 255;
 
@@ -188,50 +187,20 @@ int readData(char * filename){
     g_hashesTotal = 0;
     g_tstart = clock();
 
+    // Incremental ID to distinguish one dataset from another;
+    // threads use this to discover if they're working against stale data
     g_id++;
+    // Counter to express how many batches of nonces have been tried by different threads for this particular dataset
     g_workersUsed = 0;
 
-    fclose(fin);
 #ifdef WIN32
     ReleaseMutex(lock);
 #else
     pthread_mutex_unlock(&lock);
 #endif
 
-    if (g_debug)
-        printf("DATA READ!!! %lu %lu %lu \n", g_length, g_start, g_end);
-
-    /*
-        for (i=0;i < length;i++) {
-             char a = pwdHex[2 * i],  b = pwdHex[2 * i + 1];
-            pwd[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
-        }
-
-        for (i=0;i < 32; i++) {
-             char a = difficultyHex[2 * i],  b = difficultyHex[2 * i + 1];
-         difficulty[i] = (((encode(a) * 16) & 0xF0) + (encode(b) & 0x0F));
-
-        std::cout << length << " " << start << " "<< end << " " << batch << '\n';
-        std::cout << pwd << '\n';
-        std::cout << difficulty << '\n';
-
-    */
-
-    /*
-        for (auto q=0; q < length; q++){
-             d2base( pwd[q], 16);
-             std::cout << " ";
-        }
-
-        std::cout << "\n\n";
-       for (auto q=0; q < 32; q++){
-             //d2base( difficulty[q], 16);
-             //std::cout << difficulty[q];
-                 std::cout << " ";
-            }
-            std::cout  << "\n\n";
-        */
-
+    //readdata_debug("Committed new dataset; g_start: %lu; g_length: %lu; g_id: %lu\n", g_start, g_length, g_id);
+    //readdata_flush();
 
     return 1;
 

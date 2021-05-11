@@ -63,6 +63,8 @@ static uint64_t rdtsc(void) {
 argon2_type type = 0; //argon2_type.Argon2_d;
 
 
+#define bench_debug(...) fprintf(benchDebugOut, __VA_ARGS__)
+#define bench_flush() fflush(benchDebugOut)
 
 /*
  * Benchmarks Argon2 with salt length 16, password length 16, t_cost 3,
@@ -74,6 +76,9 @@ DWORD WINAPI benchmark(void* data) {
 #else
 void * benchmark() {
 #endif
+
+    //FILE *benchDebugOut;
+    //char benchDebugFilename[512];
 
     clock_t tstop;
     char change, solution;
@@ -119,7 +124,10 @@ void * benchmark() {
     context.version = ARGON2_VERSION_13;
     context.pwd = CONST_CAST(uint8_t *)pwd;
 
-    while ( 1 == 1){
+    //sprintf(benchDebugFilename, "argon2-bench2-thread-%d.txt", pthread_self());
+    //benchDebugOut = fopen(benchDebugFilename, "w");
+
+    while (1) {
 
         start, end = 0;
 
@@ -129,43 +137,47 @@ void * benchmark() {
 #else
         pthread_mutex_lock(&lock);
 #endif
+        // Verify we have a workload to crunch & copy process-global dataset into thread-stack-local buffers
         if (g_length > 0 && g_end > 0 && g_start < g_end){
 
+            // Snag some work for this thread
             start = g_start;
 
-            end = end > g_end ? g_end : g_start + g_batch;
+            end = g_start + g_batch;
+            if (end > g_end) {
+                end = g_end;
+            }
 
-            g_start = end;
+            g_start = end;  // Then advance g_start so another thread can snag the next batch
             g_working++;
 
-            if (idPrev != g_id) {
+            length = (int32_t) g_length; // Size of block being mined (including transactions)
+            for (i = 0; i < length; i++)
+                pwd[i] = g_pwd[i];
 
-                length = (int32_t) g_length;
-                for (i = 0; i < length; i++)
-                    pwd[i] = g_pwd[i];
+            pwd[length+4] = 0;
+            pwd[length+5] = 0;
 
-                pwd[length+4] = 0;
-                pwd[length+5] = 0;
+            // Difficulty; each byte of the resulting 32-byte hash must be LESS THAN the specified value
+            // in the g_difficulty[] array of the same byte-position.
+            for (i=0; i<32; i++)
+                target[i] = g_difficulty[i];
 
-                for (i=0; i<32; i++)
-                    target[i] = g_difficulty[i];
+            for (i=0; i<32; i++)
+                bestHash[i] = 255;
 
-                for (i=0; i<32; i++)
-                    bestHash[i] = 255;
+            context.pwdlen = (uint32_t)(length+4);
 
-                context.pwdlen = (uint32_t)(length+4);
-
-                idPrev = g_id;
-            }
         }
+        idPrev = g_id;  // Set idPrev so we can check later if we're working on a stale dataset
 #ifdef WIN32
         ReleaseMutex(lock);
 #else
         pthread_mutex_unlock(&lock);
 #endif
 
-
-        if ( end == 0) {
+        // should only trigger if (g_length > 0 && g_end > 0 && g_start < g_end) evaluated false
+        if ( end == 0 ) {
 #ifdef WIN32
             Sleep(2);
 #else
@@ -173,18 +185,17 @@ void * benchmark() {
 #endif
             continue;
         }
+        //bench_debug("Starting work: start: %lu; end: %lu\n", start, end);
+        //bench_flush();
 
+
+        // Perform argon2d hash search of current dataset
 
         solution = 0;
 
-        if (g_debug)
-            printf("processing %lu %lu \n", start, end );
-
         for (j = start; j < end && solution == 0; ++j) {
 
-            //using memcpy
-            //memcpy(pwd, pwdBuffer, length);
-
+            // Nonce is appended to block in Big-Endian format
             pwd[length + 3] = j & 0xff ;
             pwd[length + 2] = j >> 8 & 0xff ;
             pwd[length + 1] = j >> 16 & 0xff ;
@@ -211,7 +222,7 @@ void * benchmark() {
                         if (  target[i] ==  bestHash[i] ) continue; else
                         if (  target[i] <  bestHash[i] ) break; else
                         if (  target[i] >  bestHash[i] ){
-
+                            // Found a winner!!!
 
 #ifdef WIN32
                             WaitForSingleObject(lock, INFINITE);
@@ -219,17 +230,22 @@ void * benchmark() {
                             pthread_mutex_lock(&lock);
 #endif
 
-                            if (idPrev == g_id) {
-                                g_start = g_end+1;
+                            if (idPrev == g_id) {  // check we're still working on the latest dataset
+                                g_start = g_end+1; // Make sure no threads try working on more of this dataset
                                 solution = 1;
-                            } else  //it was changed already
-                                j = end;
+                            } else {     // the dataset changed already, so this result is stale.
+                                j = end; // force the outer for() loop to terminate
+                            }
 
 #ifdef WIN32
                             ReleaseMutex(lock);
 #else
                             pthread_mutex_unlock(&lock);
 #endif
+                            //if (solution == 1) {
+                            //    bench_debug("Found a solution; nonce=%lu\n", bestHashNonce);
+                            //    bench_flush();
+                            //}
                             break;
 
                         }
@@ -255,7 +271,7 @@ void * benchmark() {
 
         g_working--;
 
-        if (g_id == idPrev){//i just mined something that was changed
+        if (g_id == idPrev){  // Recent mining is still relevant to the active dataset
 
 
             g_hashesTotal += (j-start);
@@ -304,9 +320,14 @@ void * benchmark() {
                 }
 
                 fout = fopen(g_filenameOutput, "w");
+                if (!fout) {
+                    // Trouble writing output!
+                    break;
+                }
                 if (solution == 1)
                     fprintf(fout, "{ \"type\": \"s\", \"hash\": \"%s\", \"nonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (0));
                 else
+                    // What is the point of this?  Just a heartbeat to inform the miner pool that we are still mining so we get credit for attempting?
                     fprintf(fout, "{ \"type\": \"b\", \"bestHash\": \"%s\", \"bestNonce\": %lu , \"h\": %lu }", hash, g_bestHashNonce, (unsigned long) (0));
 
                 fclose(fout);
@@ -314,6 +335,8 @@ void * benchmark() {
             }
 
 
+        } else {
+            // idPrev != g_id, the dataset changed and we just need to loop again
         }
 
 #ifdef WIN32
@@ -387,11 +410,6 @@ int main(int argc, char **argv ) {
     printf("cores %d \n", g_cores);
     printf("batch %d \n", g_batch);
 
- //   g_start = 0;
- //   g_end = 100000;
- //   g_batch = 2000;
- //   g_length = 512;
-
 
 #ifdef WIN32
      lock = CreateMutex( NULL, FALSE, NULL);
@@ -438,6 +456,12 @@ int main(int argc, char **argv ) {
 #endif
 
     }
+
+    //sprintf(rdDebugFilename, "argon2-bench2-readdata-%d.txt", getpid());
+    //rdDebugOut = fopen(rdDebugFilename, "a");
+    //if (!rdDebugOut) {
+    //    exit(1);
+    //}
 
 
     while (  1 ){
